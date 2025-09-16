@@ -150,7 +150,7 @@ print(f'Impedância da carga 1: {Z1}')
 print(f'Impedância da carga 2: {Z2}')
 print(f'Impedância da carga 3: {Z3}')
 
-# Modelando o sistema:
+# Modelagem do sistema:
 
 '''
 Para modelar o sistema, podemos usar o seguinte raciocínio: olhando Lt6, T3 e Carga_3 como uma co-
@@ -191,12 +191,14 @@ V3 = Vg*Z3/(A*Z3+B)
 Onde Vg é a tensão no gerador, A e B são os coeficientes de Matriz_3.
 '''
 
-Vg = 63e3
-V3 = Vg * Z3 / (Matriz_3[0][0] * Z3 + Matriz_3[0][1])
+Vg = 63e3 # Vg: Tensão do gerador
+
+V3 = Vg * Z3 / (Matriz_3[0,0] * Z3 + Matriz_3[0,1])
 I3 = V3 / Z3
 
-print(f'\nTensão na carga 3: {np.abs(V3)}\u2220{np.degrees(np.angle(V3))}°')
-print(f'Corrente na carga 3: {np.abs(I3)}\u2220{np.degrees(np.angle(I3))}°')
+print('\n----------------------------------------------------------------------------------')
+print(f'\nTensão na carga 3: {np.abs(V3)}\u2220{np.degrees(np.angle(V3))}° Vrms')
+print(f'Corrente na carga 3: {np.abs(I3)}\u2220{np.degrees(np.angle(I3))}° Arms')
 
 # ---------------------- Tensão e corrente nas cargas Z1 e Z2: -------------------------------------
 
@@ -204,39 +206,66 @@ print(f'Corrente na carga 3: {np.abs(I3)}\u2220{np.degrees(np.angle(I3))}°')
 De forma semelhante a feita para a carga Z3, temos que:
 '''
 
-V1 = Vg * Z1 / (Matriz_1[0][0] * Z1 + Matriz_1[0][1])
+V1 = Vg * Z1 / (Matriz_1[0,0] * Z1 + Matriz_1[0,1])
 I1 = V1 / Z1
 
-V2 = Vg * Z2 / (Matriz_2[0][0] * Z2 + Matriz_2[0][1])
+V2 = Vg * Z2 / (Matriz_2[0,0] * Z2 + Matriz_2[0,1])
 I2 = V2 / Z2
 
-print(f'\nTensão na carga 1: {np.abs(V1)}\u2220{np.degrees(np.angle(V1))}°')
-print(f'Corrente na carga 1: {np.abs(I1)}\u2220{np.degrees(np.angle(I1))}°')
+print('\n----------------------------------------------------------------------------------')
+print(f'\nTensão na carga 1: {np.abs(V1)}\u2220{np.degrees(np.angle(V1))}° Vrms')
+print(f'Corrente na carga 1: {np.abs(I1)}\u2220{np.degrees(np.angle(I1))}° Arms')
 
-print(f'\nTensão na carga 2: {np.abs(V2)}\u2220{np.degrees(np.angle(V2))}°')
-print(f'Corrente na carga 2: {np.abs(I2)}\u2220{np.degrees(np.angle(I2))}°')
+print(f'\nTensão na carga 2: {np.abs(V2)}\u2220{np.degrees(np.angle(V2))}° Vrms')
+print(f'Corrente na carga 2: {np.abs(I2)}\u2220{np.degrees(np.angle(I2))}° Arms')
 
 # ---------------------- Corrente no gerador: -----------------------------------------------------
 
 '''
-Conhecendo as correntes e tensões nas cargas 1, 2 e 3, podemos fazer um professo inverso até deter-
-minar a corrente que sai do gerador, como no código abaixo:
+Sabendo que a corrente que sai do sistema é a corrente da carga 3 (I3), sendo A, B, C e D os coeficientes
+da matriz Sistema_completo, conseguimos determinar que::
+
+I_gerador = D * I3
+
 '''
 
-# Corrente da parte 3 do circuito:
+I_gerador = Sistema_completo[1,1] * I3
 
-Ip_3 = Parte_3[1,0] * V3 + Parte_3[1,1] * I3
-
-# Corrente da parte 2 do circuito:
-
-Ip_2 = Parte_2[1,0] * V2 + Parte_2[1,1] * (Ip_3+I2)
-
-# Corrente da parte 1 do circuito:
-
-I_gerador = Matriz_1[1,0] * V1 + Matriz_1[1,1] * (Ip_2+I1)
-
-print(f'\nCorrente no gerador: {np.abs(I_gerador)}\u2220{np.degrees(np.angle(I_gerador))}°')
+print('\n----------------------------------------------------------------------------------')
+print(f'\nCorrente no gerador: {np.abs(I_gerador)}\u2220{np.degrees(np.angle(I_gerador))}° Arms')
 
 # ------------- Potência ativa e reativa no gerador: -------------------------------------------------
 
 
+S_gerador = -Vg * np.conjugate(I_gerador)
+P_gerador = np.real(S_gerador)
+Q_gerador = np.imag(S_gerador)
+
+print(f'\nPotência ativa no gerador: {P_gerador} W')
+print(f'Potência reativa no gerador: {Q_gerador} VAR')
+
+# ------------- Potência ativa e reativa nas cargas: --------------------------------------------------
+
+S1 = V1 * np.conjugate(I1)
+S2 = V2 * np.conjugate(I2)
+S3 = V3 * np.conjugate(I3)
+
+S_cargas = S1 + S2 + S3
+
+P_cargas = np.real(S_cargas)
+Q_cargas = np.imag(S_cargas)
+
+print('\n----------------------------------------------------------------------------------')
+print(f'\nPotência ativa nas cargas: {P_cargas} W')
+print(f'Potência reativa nas cargas: {Q_cargas} VAR')
+
+# ------------- Potência ativa e reativa no sistema: --------------------------------------------------
+
+S_sistema = -S_gerador - S_cargas
+
+P_sistema = np.real(S_sistema)
+Q_sistema = np.imag(S_sistema)
+
+print(f'\nPotência ativa no sistema: {P_sistema} W')
+print(f'Potência reativa no sistema: {Q_sistema} VAR')
+print('(Q_linha < 0: Linha capacitiva (fornece energia reatia ao sistema))')
