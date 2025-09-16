@@ -106,7 +106,7 @@ Lt2 = linha_transmissao(80)
 Lt3 = linha_transmissao(80)
 Lt4 = linha_transmissao(120)
 Lt5 = linha_transmissao(120)
-Lt6 = linha_transmissao(160)
+Lt6 = linha_transmissao(100)
 
 # Criando a impedância do gerador no S.I:
 
@@ -142,8 +142,8 @@ Z3 = Tensao_nominal_3 ** 2 / np.conjugate(S3)
 
 # Criando a matriz de cada carga:
 
-Carga_1 = mt.matriz_impedancia_serie(Z1)
-Carga_2 = mt.matriz_impedancia_serie(Z2)
+Carga_1 = mt.matriz_carga(Z1)
+Carga_2 = mt.matriz_carga(Z2)
 Carga_3 = mt.matriz_impedancia_serie(Z3) 
 
 print(f'Impedância da carga 1: {Z1}')
@@ -162,160 +162,81 @@ Lt2 e Lt3.
 
 #  Definindo as partes do sistema:
 
-Parte_3 = mt.ligação_cascata(Lt6, T3) #Parte 3 do sistema
+Parte_1 = mt.ligação_cascata(impedancia_gerador, T1)
+Paralelo = mt.associacao_paralelo(Lt1, Lt2)
+Paralelo = mt.associacao_paralelo(Paralelo, Lt3)
+Matriz_1 = mt.ligação_cascata(Parte_1, Paralelo) # Matriz até a carga 1 
 
 Paralelo = mt.associacao_paralelo(Lt4, Lt5)
-Parte_2 = mt.ligação_cascata(Paralelo, T2) # Parte 2 do sistema
+Parte_2 = mt.ligação_cascata(Paralelo, T2)
+Matriz_2 = mt.ligação_cascata(Matriz_1, Carga_1)
+Matriz_2 = mt.ligação_cascata(Matriz_2, Parte_2) # Matriz até a carga 2
 
-Paralelo = mt.associacao_paralelo(Lt1, Lt2)
-Paralelo2 = mt.associacao_paralelo(Paralelo, Lt3)
-Parte_1 = mt.ligação_cascata(T1, Paralelo2) # Parte 1 do sistema
+Parte_3 = mt.ligação_cascata(Lt6, T3)
+Matriz_3 = mt.ligação_cascata(Matriz_2, Carga_2)
+Matriz_3 = mt.ligação_cascata(Matriz_3, Parte_3) # Matriz até a carga 3
 
-# Criando o sistema completo:
-
-Sistema = mt.ligação_cascata(Parte_3, Carga_3)
-Sistema = mt.associacao_paralelo(Sistema, Carga_2)
-Sistema = mt.ligação_cascata(Parte_2, Sistema)
-Sistema = mt.associacao_paralelo(Sistema, Carga_1)
-Sistema = mt.ligação_cascata(Parte_1, Sistema)
-
-# Adicionando a impedância do gerador:
-
-Sistema_completo = mt.ligação_cascata(impedancia_gerador, Sistema)
+Sistema_completo = mt.ligação_cascata(Matriz_3, Carga_3)
 
 #print(Sistema_completo)
 
 # ------------ Determinando a tensão fasorial de saida e a corrente em Z3: --------------------------
 
 '''
-Para determinar a tensão fasorial de saída, utilizaremos o Sistema_completo, isso porque sua tensão
-de entrada é a tensão da fonte e sua tensão de saída é 0, pois sua saída encontra-se na terra. Des-
-sa forma, sendo A, B, C e D os parâmetros de sua matriz de transferência, temos que:
+Para determinar a corrente e a tensão na carga 3, devemos utilizar a matriz que vai até ela, que é
+a matriz_3. A utilizando-a, conseguimos determinar que:
 
-|V1| = |A B| * |0 |
-|I1|   |C D|   |I2|
+V3 = Vg*Z3/(A*Z3+B)
 
-Disso, retiramos que:
-
-V1 = B*I2
-
-I1 = D*I2
-
-Determinando I1, descobrimos a corrente que sai pela fonte
+Onde Vg é a tensão no gerador, A e B são os coeficientes de Matriz_3.
 '''
 
-Vac = 69 * 10 **3
-
-I_saida = Vac / Sistema_completo[0,1]
-I_gerador = Sistema_completo[1,1] * I_saida
-
-#print(np.abs(I_gerador))
-
-'''
-Dessa forma, sendo A, B, C e D os coeficientes da matriz de transmissão da impedância do gerador, a
-sua tensão de saída é dada por:
-
-Vac_saida = (Vac - B*I1) / A
-'''
-
-Vac_saida = (Vac - impedancia_gerador[0,1] * I_gerador) / impedancia_gerador[0,0]
-
-print(f'\nCorrente no gerador: {np.abs(I_gerador)}\u2220{np.degrees(np.angle(I_gerador))} A')
-print(f'Tensão na saida do gerador: {np.abs(Vac_saida)}\u2220{np.degrees(np.angle(Vac_saida))} V')
-
-'''
-Para encontrar a corrente na carga Z3, devemos considerar a parte do sistema que vai até ela. Conhe-
-cendo a tensão e corrente que sai do gerador e sendo A, B, C e D a matriz de transmissão do sistema
-até essa parte, temos que:
-
-|V1| = |A B| * |V3|
-|I1|   |C D|   |I3|
-
-Onde V3 é a tensão na saida do quadripolo, que é a tensão que fica sobre a carga. Dessa forma, de-
-senvolvendo essa matriz, determinamos que:
-
-V3 =  V1 * Z2 / (A*Z2 + B)
-'''
-
-# Construindo o sistema até a carga Z3
-
-Matriz_carga_2_paralelo = mt.matriz_carga(Z2)
-Sistema_ate_Z3 = mt.ligação_cascata(Matriz_carga_2_paralelo, Parte_3)
-Sistema_ate_Z3 = mt.ligação_cascata(Parte_2, Sistema_ate_Z3)
-Sistema_ate_Z3 = mt.associacao_paralelo(Sistema_ate_Z3, Carga_1)
-Sistema_ate_Z3 = mt.ligação_cascata(Parte_1, Sistema_ate_Z3)
-Sistema_ate_Z3 = mt.ligação_cascata(impedancia_gerador, Sistema_ate_Z3)
-
-A = Sistema_ate_Z3[0,0]
-B = Sistema_ate_Z3[0,1]
-C = Sistema_ate_Z3[1,0]
-D = Sistema_ate_Z3[1,1]
-
-V3 = (Vac - B*I_gerador/D) / (A - B*C/D)
-
+Vg = 63e3
+V3 = Vg * Z3 / (Matriz_3[0][0] * Z3 + Matriz_3[0][1])
 I3 = V3 / Z3
 
-print(f'\nCorrente na carga Z3: {np.abs(I3)}\u2220{np.degrees(np.angle(I3))} A')
-print(f'Tensão na carga Z3: {np.abs(V3)}\u2220{np.degrees(np.angle(V3))} V')
+print(f'\nTensão na carga 3: {np.abs(V3)}\u2220{np.degrees(np.angle(V3))}°')
+print(f'Corrente na carga 3: {np.abs(I3)}\u2220{np.degrees(np.angle(I3))}°')
 
-# ------- Tensão e corrente nas cargas 1 e 2: -----------------------------------------------------
+# ---------------------- Tensão e corrente nas cargas Z1 e Z2: -------------------------------------
 
 '''
-Podemos obter a tensão e corrente nas cargas 1 e 2 de forma semelhante a feita para a carga 3, des-
-sa vez, indo até essas respectivas cargas:
+De forma semelhante a feita para a carga Z3, temos que:
 '''
 
-# Tensão e corrente na carga 1:
-
-Sistema_ate_Z1 = mt.ligação_cascata(impedancia_gerador, Parte_1)
-
-A = Parte_1[0,0]
-B = Parte_1[0,1]
-C = Parte_1[1,0]
-D = Parte_1[1,1]
-
-
-V1 = (Vac - B*I_gerador/D) / (A - B*C/D)
-
+V1 = Vg * Z1 / (Matriz_1[0][0] * Z1 + Matriz_1[0][1])
 I1 = V1 / Z1
 
-print(f'\nCorrente na carga Z1: {np.abs(I1)}\u2220{np.degrees(np.angle(I1))} A')
-print(f'Tensão na carga Z1: {np.abs(V1)}\u2220{np.degrees(np.angle(V1))} V')
-
-# Tensão e corrente na carga 2:
-
-Sistema_ate_Z2 = mt.associacao_paralelo(Parte_2, Carga_1)
-Sistema_ate_Z2 = mt.ligação_cascata(Parte_1, Sistema_ate_Z2)
-Sistema_ate_Z2 = mt.ligação_cascata(impedancia_gerador, Sistema_ate_Z2)
-
-A = Sistema_ate_Z2[0,0]
-B = Sistema_ate_Z2[0,1]
-C = Sistema_ate_Z2[1,0]
-D = Sistema_ate_Z2[1,1]
-
-V2 = (Vac - B*I_gerador/D) / (A - B*C/D)
-
+V2 = Vg * Z2 / (Matriz_2[0][0] * Z2 + Matriz_2[0][1])
 I2 = V2 / Z2
 
-print(f'\nCorrente na carga Z2: {np.abs(I2)}\u2220{np.degrees(np.angle(I2))} A')
-print(f'Tensão na carga Z2: {np.abs(V2)}\u2220{np.degrees(np.angle(V2))} V')
+print(f'\nTensão na carga 1: {np.abs(V1)}\u2220{np.degrees(np.angle(V1))}°')
+print(f'Corrente na carga 1: {np.abs(I1)}\u2220{np.degrees(np.angle(I1))}°')
 
-# ---------------- Potencia ativa e reativa fornecida pelo gerador: -------------------------------
+print(f'\nTensão na carga 2: {np.abs(V2)}\u2220{np.degrees(np.angle(V2))}°')
+print(f'Corrente na carga 2: {np.abs(I2)}\u2220{np.degrees(np.angle(I2))}°')
 
-S_gerador = -Vac * np.conjugate(I_gerador)
+# ---------------------- Corrente no gerador: -----------------------------------------------------
 
-print(f'\nPotencia complexa fornecida pelo gerador: {S_gerador}')
+'''
+Conhecendo as correntes e tensões nas cargas 1, 2 e 3, podemos fazer um professo inverso até deter-
+minar a corrente que sai do gerador, como no código abaixo:
+'''
 
-# -------------- Potencia complexa consumida pelas cargas: -------------------------------------------
+# Corrente da parte 3 do circuito:
 
-S_carga1 = V1 * np.conjugate(I1)
-S_carga2 = V2 * np.conjugate(I2)
-S_carga3 = V3 * np.conjugate(I3)
+Ip_3 = Parte_3[1,0] * V3 + Parte_3[1,1] * I3
 
-S_cargas = S_carga1 + S_carga2 + S_carga3
+# Corrente da parte 2 do circuito:
 
-print(f'Potencia consumida pelas cargas: {S_cargas}')
+Ip_2 = Parte_2[1,0] * V2 + Parte_2[1,1] * (Ip_3+I2)
 
-# --------------------- Potencia complexa no resto do sistema: -----------------------------------------
+# Corrente da parte 1 do circuito:
 
-print(f'Potencia complexa no sistema: {-S_gerador - S_cargas}')
+I_gerador = Matriz_1[1,0] * V1 + Matriz_1[1,1] * (Ip_2+I1)
+
+print(f'\nCorrente no gerador: {np.abs(I_gerador)}\u2220{np.degrees(np.angle(I_gerador))}°')
+
+# ------------- Potência ativa e reativa no gerador: -------------------------------------------------
+
+
